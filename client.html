@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Berkeley Client Sync Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-gray-100 font-sans">
+
+    <div class="max-w-3xl mx-auto p-6">
+        <h1 class="text-3xl font-bold text-center mb-8 text-sky-400">Client Status Dashboard</h1>
+
+        <div id="loading" class="text-center text-lg bg-gray-800 border border-gray-700 rounded-xl p-6 shadow-lg">
+            <p>Memuat...</p>
+        </div>
+
+        <div id="client-data"
+            class="hidden grid grid-cols-1 md:grid-cols-2 gap-6 mb-8 bg-gray-800 border border-gray-700 rounded-xl p-6 shadow-lg">
+            
+            <h2 class="text-2xl font-semibold text-sky-300 mb-4 col-span-1 md:col-span-2">
+                Client ID: <span id="client-id" class="font-mono">--</span>
+            </h2>
+
+            <div class="bg-gray-700/50 rounded-lg p-4">
+                <h3 class="text-sm font-semibold text-sky-300 mb-2">Waktu Lokal (Sebelum)</h3>
+                <div id="time-before" class="text-xl font-mono">--:--:--</div>
+            </div>
+
+            <div class="bg-gray-700/50 rounded-lg p-4">
+                <h3 class="text-sm font-semibold text-sky-300 mb-2">Waktu Lokal (Setelah)</h3>
+                <div id="time-after" class="text-xl font-mono">--:--:--</div>
+            </div>
+
+            <div class="bg-gray-700/50 rounded-lg p-4 col-span-1 md:col-span-2">
+                <h3 class="text-sm font-semibold text-sky-300 mb-2">Offset Diterima</h3>
+                <div id="offset" class="text-xl font-mono">-- ms</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const loadingEl = document.getElementById('loading');
+        const clientDataEl = document.getElementById('client-data');
+
+        const clientIdEl = document.getElementById('client-id');
+        const timeBeforeEl = document.getElementById('time-before');
+        const timeAfterEl = document.getElementById('time-after');
+        const offsetEl = document.getElementById('offset');
+
+        const params = new URLSearchParams(window.location.search);
+        const clientId = params.get('id');
+
+        if (!clientId) {
+            loadingEl.innerText = "Harap tentukan Client ID di URL. Contoh: .../client.html?id=39";
+        } else {
+            loadingEl.innerText = `Memuat data untuk Client ${clientId}...`;
+            fetchAndDisplay();
+            setInterval(fetchAndDisplay, 3000);
+        }
+
+        async function fetchAndDisplay() {
+            const fileName = `sync_client_${clientId}.json`;
+            try {
+                const response = await fetch(fileName, { cache: 'no-store' });
+                
+                if (!response.ok) {
+                    throw new Error(`File ${fileName} tidak ditemukan.`);
+                }
+                
+                const data = await response.json();
+
+                loadingEl.classList.add('hidden');
+                clientDataEl.classList.remove('hidden');
+
+                clientIdEl.innerText = data.client_id;
+                offsetEl.innerText = `${data.offset_ms} ms`;
+                
+                const options = { hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3, hour12: false };
+                timeBeforeEl.innerText = new Date(data.local_time_before).toLocaleTimeString('id-ID', options);
+                timeAfterEl.innerText = new Date(data.adjusted_time).toLocaleTimeString('id-ID', options);
+
+            } catch (error) {
+                console.error(error);
+                loadingEl.classList.remove('hidden');
+                clientDataEl.classList.add('hidden');
+                loadingEl.innerText = `Error: ${error.message}. Pastikan client.js (ID: ${clientId}) sedang berjalan dan file JSON dapat diakses.`;
+            }
+        }
+    </script>
+</body>
+
+</html>
