@@ -1,79 +1,111 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
+
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Berkeley Time Sync Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body onload="startTime(); updateTimer();">
-    <div id="txt"></div>
-    <div id="timer"></div>
-    <div id="output"></div>
+
+<body class="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-gray-100 font-sans">
+
+    <div class="max-w-5xl mx-auto p-6">
+        <h1 class="text-3xl font-bold text-center mb-8 text-emerald-400">Server Time Dashboard</h1>
+
+        <div class="grid md:grid-cols-2 gap-6 mb-8">
+            <div class="bg-gray-800 border border-gray-700 rounded-xl p-4 text-center shadow-lg">
+                <h2 class="text-lg font-semibold text-emerald-300 mb-2">Waktu Server (Sebelum)</h2>
+                <div id="server-before" class="text-2xl font-mono">--:--:--</div>
+            </div>
+            <div class="bg-gray-800 border border-gray-700 rounded-xl p-4 text-center shadow-lg">
+                <h2 class="text-lg font-semibold text-emerald-300 mb-2">Waktu Server (Setelah Berkeley)</h2>
+                <div id="server-after" class="text-2xl font-mono">--:--:--</div>
+            </div>
+            <div class="bg-gray-800 border border-gray-700 rounded-xl p-4 text-center shadow-lg col-span-2">
+                <h2 class="text-lg font-semibold text-emerald-300 mb-2">Server Offset</h2>
+                <div id="server-offset" class="text-2xl font-mono">0 ms</div>
+            </div>
+        </div>
+
+        <div class="bg-gray-800 border border-gray-700 rounded-xl p-4 shadow-lg mb-6">
+            <h2 class="text-lg font-semibold text-emerald-300 mb-3">Daftar Client</h2>
+            <div class="overflow-x-auto rounded-lg">
+                <table class="min-w-full text-sm text-gray-200 border-collapse">
+                    <thead class="bg-emerald-600 text-white uppercase text-xs">
+                        <tr>
+                            <th class="px-4 py-2 text-left">Alamat IP</th>
+                            <th class="px-4 py-2 text-left">Offset (ms)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="client-table" class="divide-y divide-gray-700">
+                        <tr>
+                            <td colspan="3" class="px-4 py-3 text-center text-gray-400">Menunggu data sinkronisasi...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
     <script>
-        let countDownDate = new Date().getTime() + (5 * 60 * 1000);
-        
-        function startTime() {
-            const today = new Date();
-            let h = today.getHours();
-            let m = today.getMinutes();
-            let s = today.getSeconds();
-            m = checkTime(m);
-            s = checkTime(s);
-            document.getElementById('txt').innerHTML =  h + ":" + m + ":" + s;
-            setTimeout(startTime, 1000);
+        function updateServerBefore() {
+            const now = new Date();
+            const h = String(now.getHours()).padStart(2, '0');
+            const m = String(now.getMinutes()).padStart(2, '0');
+            const s = String(now.getSeconds()).padStart(2, '0');
+            document.getElementById("server-before").innerText = `${h}:${m}:${s}`;
+            setTimeout(updateServerBefore, 1000);
         }
+        updateServerBefore();
 
-        function updateTimer() {
-            // Get today's date and time
-            var now = new Date().getTime();
-                
-            // Find the distance between now and the count down date
-            var distance = countDownDate - now;
-                
-            // Time calculations for days, hours, minutes and seconds
-            var minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
-            var seconds = Math.floor((distance % (1000 * 60)) / 1000);
-            document.getElementById("timer").innerHTML =  minutes + ":" + seconds;
-            if (distance <= 0) {
-                countDownDate = new Date().getTime() + (5 * 60 * 1000);
-            }
-            setTimeout(updateTimer, 1000);
-        }
-
-        function checkTime(i) {
-            if (i < 10) {i = "0" + i};  // add zero in front of numbers < 10
-            return i;
-        }
         const ws = new WebSocket("ws://localhost:8080");
         const output = document.getElementById("output");
+        const clientTable = document.getElementById("client-table");
+        const serverOffsetEl = document.getElementById("server-offset");
+        const serverAfterEl = document.getElementById("server-after");
 
         ws.onopen = () => {
-        output.textContent = "✅ Terhubung ke WebSocket Server...\n";
-        output.innerHTML += "<br />"
+            output.textContent = "✅ Terhubung ke WebSocket server.\n";
         };
 
         ws.onmessage = (event) => {
             const data = JSON.parse(event.data);
-            if (data.type === "sync_result") {
-                output.innerHTML = "server offset : " + data.offsets[data.offsets.length - 1] + " ms\n";
-                output.innerHTML += "<br />"
 
-                for (let i = 0; i < data.offsets.length - 1; i++) {
-                output.innerHTML += "client " + data.clientsIP[i] + " offset : " + data.offsets[i] + " ms\n";
-                output.innerHTML += "<br />"
+            // backend hanya kirim type = "sync_result"
+            if (data.type === "sync_result") {
+                const { clientsIP, offsets, avgTime, timestamp } = data;
+                const serverOffset = offsets[offsets.length - 1];
+
+                // tampilkan data server
+                serverOffsetEl.innerText = `${serverOffset.toFixed(2)} ms`;
+                serverAfterEl.innerText = new Date(avgTime).toLocaleTimeString();
+
+                // tampilkan data client
+                if (clientsIP.length > 0) {
+                    clientTable.innerHTML = "";
+                    clientsIP.forEach((ip, i) => {
+                        const offset = offsets[i].toFixed(2);
+                        clientTable.innerHTML += `
+              <tr class="hover:bg-gray-700/40 transition">
+                <td class="px-4 py-2">${i + 1}</td>
+                <td class="px-4 py-2">${ip}</td>
+                <td class="px-4 py-2">${offset} ms</td>
+              </tr>`;
+                    });
                 }
-            }
-            else if(data.type === "sync_progress") {
-                for (let i = 0; i < data.clientsIP.length; i++) {
-                output.innerHTML += "Client " + (i + 1) + " : " + data.clientsIP[i];
-                output.innerHTML += "<br />"
-                }
+
+                // tampilkan log
+                output.textContent += `🕒 Sinkronisasi: ${timestamp}\nServer offset: ${serverOffset.toFixed(2)} ms\n\n`;
+                output.scrollTop = output.scrollHeight;
             }
         };
 
         ws.onerror = (err) => {
-            output.textContent += "\n❌ Gagal terhubung ke WebSocket!\n";
+            output.textContent += "❌ Gagal terhubung ke WebSocket!\n";
         };
     </script>
 </body>
+
 </html>
