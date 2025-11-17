@@ -4,7 +4,8 @@ const fs = require("fs");
 const fsPromises = require('fs').promises;
 const WebSocket = require('ws');
 
-const SERVER_HOST = "localhost";
+const SERVER_HOST = "172.20.10.8";
+const HTTP_HOST = "localhost";
 const SERVER_PORT = 8001;
 const HTTP_PORT = 8002;
 const WS_PORT = 8081;
@@ -21,7 +22,7 @@ fsPromises.readFile(__dirname + "/client.html")
   .then(contents => {
       indexFile = contents;
       httpServer.listen(HTTP_PORT, SERVER_HOST, () => {
-          console.log(`Server is running on http://${HTTP_PORT}:${SERVER_HOST}`);
+          console.log(`Server is running on http://${HTTP_PORT}:${HTTP_HOST}`);
       });
   })
   .catch(err => {
@@ -30,7 +31,7 @@ fsPromises.readFile(__dirname + "/client.html")
   });
 
 const wss = new WebSocket.Server({ port: WS_PORT });
-console.log(`WebSocket Server: ws://${SERVER_HOST}:${WS_PORT}`);
+console.log(`WebSocket Server: ws://${HTTP_HOST}:${WS_PORT}`);
 
 // ID klien diambil dari argumen command line
 const CLIENT_ID = process.argv[2] ? process.argv[2] : Math.floor(Math.random() * 100);
@@ -68,15 +69,23 @@ client.on("data", (data) => {
     console.log(`[${CLIENT_ID}] Waktu setelah sinkronisasi: ${new Date(adjustedTime).toLocaleString()}\n`);
 
     // Simpan hasil sinkronisasi ke file
-    const syncData = {
+    // const syncData = {
+    //   client_id: CLIENT_ID,
+    //   local_time_before: new Date().toISOString(),
+    //   offset_ms: offset,
+    //   adjusted_time: new Date(adjustedTime).toISOString(),
+    //   server: SERVER_HOST,
+    // };
+
+    broadcast( {
       client_id: CLIENT_ID,
       local_time_before: new Date().toISOString(),
       offset_ms: offset,
       adjusted_time: new Date(adjustedTime).toISOString(),
       server: SERVER_HOST,
-    };
+    });
 
-    fs.writeFileSync(LOG_FILE, JSON.stringify(syncData, null, 2));
+    // fs.writeFileSync(LOG_FILE, JSON.stringify(syncData, null, 2));
   }
 });
 

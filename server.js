@@ -126,5 +126,6 @@ server.listen(TCP_PORT, () => {
     } else {
       console.log("⚠️ Tidak ada klien yang terhubung, menunggu...");
     }
-  }, 300 * 1000); // setiap 5 menit
+  // }, 300 * 1000); // setiap 5 menit
+  }, 10000); // setiap 5 menit
 });
