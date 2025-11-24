@@ -1,111 +1,244 @@
 <!DOCTYPE html>
 <html lang="id">
-
-<head>
+  <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Berkeley Time Sync Dashboard</title>
+    <title>Berkeley Server Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
-</head>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+      .flash-update {
+        animation: flash 0.5s ease-out;
+      }
+      @keyframes flash {
+        0% { color: #ffffff; text-shadow: 0 0 10px #ffffff; }
+        100% { color: inherit; text-shadow: none; }
+      }
+      .custom-scroll::-webkit-scrollbar {
+        width: 8px;
+      }
+      .custom-scroll::-webkit-scrollbar-track {
+        background: #1e293b; 
+      }
+      .custom-scroll::-webkit-scrollbar-thumb {
+        background: #334155; 
+        border-radius: 4px;
+      }
+      .custom-scroll::-webkit-scrollbar-thumb:hover {
+        background: #475569; 
+      }
+    </style>
+  </head>
 
-<body class="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-gray-100 font-sans">
+  <body
+    class="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-gray-100 font-sans p-6"
+  >
+    <div class="max-w-6xl mx-auto">
+      
+      <div class="flex items-center justify-between mb-8 border-b border-slate-800 pb-6">
+        <div class="flex items-center gap-4">
+          <div class="p-3 bg-emerald-500/10 rounded-xl border border-emerald-500/20">
+            <i data-lucide="server" class="w-8 h-8 text-emerald-400"></i>
+          </div>
+          <div>
+            <h1 class="text-3xl font-bold text-emerald-400 tracking-tight">
+              Server Master Control
+            </h1>
+            <p class="text-slate-400 text-sm">Berkeley Time Synchronization Algorithm</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2 px-4 py-2 bg-slate-800 rounded-full border border-slate-700">
+          <span class="relative flex h-3 w-3">
+            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span class="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+          </span>
+          <span class="text-xs font-mono text-emerald-400">SYSTEM ACTIVE</span>
+        </div>
+      </div>
 
-    <div class="max-w-5xl mx-auto p-6">
-        <h1 class="text-3xl font-bold text-center mb-8 text-emerald-400">Server Time Dashboard</h1>
-
-        <div class="grid md:grid-cols-2 gap-6 mb-8">
-            <div class="bg-gray-800 border border-gray-700 rounded-xl p-4 text-center shadow-lg">
-                <h2 class="text-lg font-semibold text-emerald-300 mb-2">Waktu Server (Sebelum)</h2>
-                <div id="server-before" class="text-2xl font-mono">--:--:--</div>
-            </div>
-            <div class="bg-gray-800 border border-gray-700 rounded-xl p-4 text-center shadow-lg">
-                <h2 class="text-lg font-semibold text-emerald-300 mb-2">Waktu Server (Setelah Berkeley)</h2>
-                <div id="server-after" class="text-2xl font-mono">--:--:--</div>
-            </div>
-            <div class="bg-gray-800 border border-gray-700 rounded-xl p-4 text-center shadow-lg col-span-2">
-                <h2 class="text-lg font-semibold text-emerald-300 mb-2">Server Offset</h2>
-                <div id="server-offset" class="text-2xl font-mono">0 ms</div>
-            </div>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        
+        <div class="bg-slate-800/50 backdrop-blur border border-slate-700 rounded-xl p-5 shadow-lg relative overflow-hidden group">
+          <div class="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition">
+            <i data-lucide="clock" class="w-16 h-16 text-slate-400"></i>
+          </div>
+          <div class="flex items-center gap-2 mb-2">
+            <i data-lucide="clock" class="w-4 h-4 text-slate-400"></i>
+            <h2 class="text-sm font-semibold text-slate-300">Waktu Sistem (Real-time)</h2>
+          </div>
+          <div id="server-before" class="text-3xl font-mono text-slate-200 font-bold tracking-wider">--:--:--</div>
         </div>
 
-        <div class="bg-gray-800 border border-gray-700 rounded-xl p-4 shadow-lg mb-6">
-            <h2 class="text-lg font-semibold text-emerald-300 mb-3">Daftar Client</h2>
-            <div class="overflow-x-auto rounded-lg">
-                <table class="min-w-full text-sm text-gray-200 border-collapse">
-                    <thead class="bg-emerald-600 text-white uppercase text-xs">
-                        <tr>
-                            <th class="px-4 py-2 text-left">Alamat IP</th>
-                            <th class="px-4 py-2 text-left">Offset (ms)</th>
-                        </tr>
-                    </thead>
-                    <tbody id="client-table" class="divide-y divide-gray-700">
-                        <tr>
-                            <td colspan="3" class="px-4 py-3 text-center text-gray-400">Menunggu data sinkronisasi...
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
+        <div class="bg-gradient-to-br from-slate-800/80 to-emerald-900/20 border border-emerald-500/30 rounded-xl p-5 shadow-lg relative overflow-hidden">
+          <div class="absolute top-0 right-0 p-4 opacity-10">
+            <i data-lucide="activity" class="w-16 h-16 text-emerald-400"></i>
+          </div>
+          <div class="flex items-center gap-2 mb-2">
+            <i data-lucide="zap" class="w-4 h-4 text-emerald-400"></i>
+            <h2 class="text-sm font-semibold text-emerald-300">Waktu Rata-rata (Berkeley)</h2>
+          </div>
+          <div id="server-after" class="text-3xl font-mono text-emerald-400 font-bold tracking-wider">--:--:--</div>
         </div>
+
+        <div class="bg-slate-800/50 backdrop-blur border border-slate-700 rounded-xl p-5 shadow-lg relative overflow-hidden">
+             <div class="absolute top-0 right-0 p-4 opacity-10">
+            <i data-lucide="scale" class="w-16 h-16 text-yellow-400"></i>
+          </div>
+          <div class="flex items-center gap-2 mb-2">
+            <i data-lucide="git-compare" class="w-4 h-4 text-yellow-400"></i>
+            <h2 class="text-sm font-semibold text-yellow-400">Server Offset</h2>
+          </div>
+          <div id="server-offset" class="text-3xl font-mono text-yellow-400 font-bold">0 ms</div>
+          <p class="text-xs text-slate-500 mt-1">Koreksi untuk server sendiri</p>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <div class="lg:col-span-2 bg-slate-800/50 border border-slate-700 rounded-xl shadow-lg overflow-hidden flex flex-col">
+          <div class="p-4 border-b border-slate-700 bg-slate-800/80 flex justify-between items-center">
+            <h3 class="font-semibold text-emerald-300 flex items-center gap-2">
+              <i data-lucide="users" class="w-4 h-4"></i> Klien Terhubung
+            </h3>
+            <span class="text-xs bg-slate-700 px-2 py-1 rounded text-slate-300">Live Sync</span>
+          </div>
+          
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm text-left text-gray-300">
+              <thead class="text-xs text-slate-400 uppercase bg-slate-900/50">
+                <tr>
+                  <th scope="col" class="px-6 py-3 w-16">#</th>
+                  <th scope="col" class="px-6 py-3">Address / IP</th>
+                  <th scope="col" class="px-6 py-3 text-right">Offset Adjustment</th>
+                </tr>
+              </thead>
+              <tbody id="client-table" class="divide-y divide-slate-700">
+                <tr>
+                  <td colspan="3" class="px-6 py-8 text-center text-slate-500 italic">
+                    <div class="flex flex-col items-center justify-center gap-2">
+                      <i data-lucide="loader" class="w-6 h-6 animate-spin"></i>
+                      Menunggu data sinkronisasi...
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="lg:col-span-1 bg-slate-950 border border-slate-800 rounded-xl shadow-lg flex flex-col h-96 lg:h-auto">
+          <div class="p-3 border-b border-slate-800 bg-slate-900 flex items-center gap-2">
+            <i data-lucide="terminal" class="w-4 h-4 text-slate-500"></i>
+            <h3 class="text-xs font-mono text-slate-400 font-bold">SERVER_LOGS</h3>
+          </div>
+          <div id="output" class="flex-1 p-4 font-mono text-xs text-emerald-500/90 overflow-y-auto custom-scroll whitespace-pre-wrap leading-relaxed">System ready...<br>Waiting for connections...</div>
+        </div>
+
+      </div>
     </div>
 
     <script>
+        lucide.createIcons();
+
         function updateServerBefore() {
             const now = new Date();
-            const h = String(now.getHours()).padStart(2, '0');
-            const m = String(now.getMinutes()).padStart(2, '0');
-            const s = String(now.getSeconds()).padStart(2, '0');
-            document.getElementById("server-before").innerText = `${h}:${m}:${s}`;
+            // Format HH:MM:SS
+            const timeString = now.toLocaleTimeString('id-ID', {
+                hour: '2-digit', 
+                minute: '2-digit', 
+                second: '2-digit',
+                hour12: false 
+            });
+            document.getElementById("server-before").innerText = timeString;
             setTimeout(updateServerBefore, 1000);
         }
         updateServerBefore();
 
+        // WebSocket Logic
         const ws = new WebSocket("ws://localhost:8080");
         const output = document.getElementById("output");
         const clientTable = document.getElementById("client-table");
         const serverOffsetEl = document.getElementById("server-offset");
         const serverAfterEl = document.getElementById("server-after");
 
+        function logToTerminal(msg) {
+            const time = new Date().toLocaleTimeString('id-ID', {hour12: false});
+            output.innerHTML += `<span class="text-slate-500">[${time}]</span> ${msg}\n`;
+            output.scrollTop = output.scrollHeight;
+        }
+
         ws.onopen = () => {
-            output.textContent = "✅ Terhubung ke WebSocket server.\n";
+            logToTerminal("✅ WebSocket Connected (Port 8080)");
         };
 
         ws.onmessage = (event) => {
-            const data = JSON.parse(event.data);
+            try {
+                const data = JSON.parse(event.data);
 
-            // backend hanya kirim type = "sync_result"
-            if (data.type === "sync_result") {
-                const { clientsIP, offsets, avgTime, timestamp } = data;
-                const serverOffset = offsets[offsets.length - 1];
+                // Backend hanya kirim type = "sync_result"
+                if (data.type === "sync_result") {
+                    const { clientsIP, offsets, avgTime, timestamp } = data;
+                    
+                    // Ambil offset terakhir (milik server)
+                    const serverOffset = offsets[offsets.length - 1];
 
-                // tampilkan data server
-                serverOffsetEl.innerText = `${serverOffset.toFixed(2)} ms`;
-                serverAfterEl.innerText = new Date(avgTime).toLocaleTimeString();
-
-                // tampilkan data client
-                if (clientsIP.length > 0) {
-                    clientTable.innerHTML = "";
-                    clientsIP.forEach((ip, i) => {
-                        const offset = offsets[i].toFixed(2);
-                        clientTable.innerHTML += `
-              <tr class="hover:bg-gray-700/40 transition">
-                <td class="px-4 py-2">${i + 1}</td>
-                <td class="px-4 py-2">${ip}</td>
-                <td class="px-4 py-2">${offset} ms</td>
-              </tr>`;
+                    // Tampilkan Data Server
+                    serverOffsetEl.innerText = `${serverOffset.toFixed(2)} ms`;
+                    
+                    // Format waktu Berkeley
+                    const berkeleyTime = new Date(avgTime).toLocaleTimeString('id-ID', {
+                         hour: '2-digit', minute: '2-digit', second: '2-digit', fractionalSecondDigits: 3, hour12: false
                     });
-                }
+                    serverAfterEl.innerText = berkeleyTime;
 
-                // tampilkan log
-                output.textContent += `🕒 Sinkronisasi: ${timestamp}\nServer offset: ${serverOffset.toFixed(2)} ms\n\n`;
-                output.scrollTop = output.scrollHeight;
+                    serverAfterEl.classList.remove("flash-update");
+                    void serverAfterEl.offsetWidth; 
+                    serverAfterEl.classList.add("flash-update");
+
+                    // Render Tabel Client
+                    // Note: offsets.length - 1 karena elemen terakhir adalah server
+                    if (clientsIP.length > 0) {
+                        clientTable.innerHTML = "";
+                        
+                        clientsIP.forEach((ip, i) => {
+                            
+                            const offsetVal = offsets[i];
+                            const offsetStr = offsetVal.toFixed(2);
+                            const offsetClass = offsetVal >= 0 ? "text-emerald-400" : "text-yellow-400";
+                            const sign = offsetVal >= 0 ? "+" : "";
+
+                            clientTable.innerHTML += `
+                                <tr class="hover:bg-slate-700/30 transition border-b border-slate-700/50 last:border-0">
+                                    <td class="px-6 py-3 font-mono text-slate-400 text-xs">${i + 1}</td>
+                                    <td class="px-6 py-3 font-mono text-slate-200">
+                                        <div class="flex items-center gap-2">
+                                            <i data-lucide="monitor" class="w-3 h-3 text-slate-500"></i>
+                                            ${ip}
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-3 text-right font-mono font-bold ${offsetClass}">
+                                        ${sign}${offsetStr} ms
+                                    </td>
+                                </tr>`;
+                        });
+
+                        lucide.createIcons();
+                    }
+
+                    logToTerminal(`Sync Complete. Server Offset: ${serverOffset.toFixed(2)}ms`);
+                }
+            } catch (e) {
+                console.error("Error parsing WS data", e);
             }
         };
 
         ws.onerror = (err) => {
-            output.textContent += "❌ Gagal terhubung ke WebSocket!\n";
+            logToTerminal("<span class='text-red-500'>❌ Connection Error!</span>");
+        };
+
+        ws.onclose = () => {
+            logToTerminal("<span class='text-red-500'>⚠️ Connection Closed.</span>");
         };
     </script>
-</body>
-
+  </body>
 </html>
