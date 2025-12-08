@@ -1,7 +1,7 @@
 const net = require("net");
 const http = require("http");
 const fs = require('fs').promises;
-const WebSocket = require('ws');
+const WebSocket = require("ws");
 
 const HTTP_HOST = "localhost";
 const HTTP_PORT = 8000;
@@ -10,122 +10,162 @@ const WS_PORT = 8080;
 
 let clients = [];
 let clientsIP = [];
-let clientTimes = [];
+let rttMeasurements = {};   // RTT per klien
+let clientTimes = {};       // waktu klien (setelah dikoreksi)
 let indexFile;
 
-const requestListener = function (req, res) {
-    res.setHeader("Content-Type", "text/html");
-    res.writeHead(200);
-    res.end(indexFile);
+// ==== HTTP SERVER ====
+
+const requestListener = (req, res) => {
+  res.setHeader("Content-Type", "text/html");
+  res.writeHead(200);
+  res.end(indexFile);
 };
 
 const httpServer = http.createServer(requestListener);
 
 fs.readFile(__dirname + "/server.html")
   .then(contents => {
-      indexFile = contents;
-      httpServer.listen(HTTP_PORT, HTTP_HOST, () => {
-          console.log(`Server is running on http://${HTTP_PORT}:${HTTP_HOST}`);
-      });
-  })
-  .catch(err => {
-      console.error(`Could not read index.html file: ${err}`);
-      process.exit(1);
+    indexFile = contents;
+    httpServer.listen(HTTP_PORT, HTTP_HOST, () => {
+      console.log(`Server running at http://${HTTP_HOST}:${HTTP_PORT}`);
+    });
   });
 
+// ==== WEBSOCKET ====
 const wss = new WebSocket.Server({ port: WS_PORT });
 console.log(`WebSocket Server: ws://${HTTP_HOST}:${WS_PORT}`);
 
 function broadcast(data) {
-  wss.clients.forEach((client) => {
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(JSON.stringify(data));
+  wss.clients.forEach(c => {
+    if (c.readyState === WebSocket.OPEN) {
+      c.send(JSON.stringify(data));
     }
   });
 }
 
+// ==== TCP SERVER (BERKELEY) ====
+
 const server = net.createServer((socket) => {
-  console.log("Klien terhubung:", socket.remoteAddress);
+  const ip = socket.remoteAddress;
+  console.log("Klien terhubung:", ip);
+
   clients.push(socket);
-  clientsIP.push(socket.remoteAddress);
+  clientsIP.push(ip);
 
-  // broadcast({
-  //   type: "sync_progress",
-  //   clientsIP
-  // });
-  if (clients.length > 0) {
-    console.log("Mulai sinkronisasi waktu...");
-    // Kirim permintaan waktu ke semua klien
-    clients.forEach((client) => {
-      client.write("REQ_TIME");
-    });
+  socket.on("data", (data) => {
+    const msg = data.toString();
 
-    // Terima waktu dari klien
-    socket.on("data", (data) => {
-      const clientTime = parseFloat(data);
-      console.log("Waktu dari klien: ", clientTime + " ms");
-      clientTimes.push(clientTime);
+    // 1. Jika klien mengirim TIME <timestamp>
+    if (msg.startsWith("TIME")) {
+      const parts = msg.split(" ");
+      const clientSendTime = Number(parts[1]);   // waktu klien saat mengirim
+      const serverReceiveTime = Date.now();
 
-      // Jika semua waktu sudah diterima
-      if (clientTimes.length === clients.length) {
-        const serverTime = Date.now();
-        const allTimes = [...clientTimes, serverTime];
-        const avgTime =
-          allTimes.reduce((a, b) => a + b, 0) / allTimes.length;
+      // Hitung RTT/2
+      const rtt = serverReceiveTime - rttMeasurements[ip];
+      const delay = rtt / 2;
 
-        // Hitung offset
-        const offsets = allTimes.map((t) => avgTime - t);
+      // Koreksi waktu klien
+      const correctedClientTime = clientSendTime + delay;
 
-        console.log("\n=== HASIL SINKRONISASI ===");
-        console.log("Server offset:", offsets[offsets.length - 1], "ms");
+      clientTimes[ip] = correctedClientTime;
 
-        broadcast({
-          type: "sync_result",
-          clientsIP,
-          avgTime,
-          offsets,
-          timestamp: new Date().toLocaleTimeString(),
-        });
+      console.log(`Data dari ${ip}`);
+      console.log("  Client send:", clientSendTime);
+      console.log("  Server recv:", serverReceiveTime);
+      console.log("  RTT:", rtt, "ms");
+      console.log("  Delay:", delay, "ms");
+      console.log("  Corrected:", correctedClientTime);
 
-        // Kirim offset ke klien
-        clients.forEach((client, index) => {
-          client.write(offsets[index].toString());
-        });
-
-        // Reset
-        // clients = [];
-        // clientsIP = [];
-        clientTimes = [];
-
-        // Timer On
-        // if (timer == 0) {
-        //   timer = 300
-        // }
+      // Jika semua data masuk
+      if (Object.keys(clientTimes).length === clients.length) {
+        executeBerkeley();
       }
-    });
-  }
+    }
+  });
 });
 
+// ==== FUNGSI UTAMA BERKELEY ====
 
+function executeBerkeley() {
+  const serverTime = Date.now();
+  
+  // Ambil semua waktu klien
+  const times = Object.values(clientTimes);
+  
+  if (times.length === 0) return;
+
+  // Hitung rata-rata waktu klien (Berkeley standard)
+  const avg = times.reduce((a, b) => a + b) / times.length;
+
+  console.log("\n=== HASIL SINKRONISASI (BERKELEY) ===");
+  console.log("Server time:", serverTime, "ms");
+  console.log("Client corrected times:", clientTimes);
+  console.log("Average (clients only):", avg, "ms");
+
+  // Hitung offset klien
+  let offsets = {};
+  clientsIP.forEach(ip => {
+    offsets[ip] = avg - clientTimes[ip];
+  });
+
+  // Offset server (optional)
+  const serverOffset = avg - serverTime;
+
+  console.log("Offsets:", offsets);
+  console.log("Server offset:", serverOffset);
+
+  // Broadcast ke WebSocket
+  broadcast({
+    type: "sync_result",
+    clientsIP,
+    avgTime: avg,
+    offsets,
+    serverOffset,
+    timestamp: new Date().toLocaleTimeString()
+  });
+
+  // Kirim offset ke masing-masing klien
+  clients.forEach((client, i) => {
+    const ip = clientsIP[i];
+    client.write(`OFFSET ${offsets[ip]}`);
+  });
+
+  // Reset untuk sinkronisasi berikutnya
+  clientTimes = {};
+  rttMeasurements = {};
+}
+
+// ==== TRIGGER SYNC ====
+function startSync() {
+  if (clients.length === 0) {
+    console.log("Tidak ada klien, menunggu...");
+    return;
+  }
+
+  console.log("\n=== MULAI SINKRONISASI BERKELEY ===");
+
+  clientTimes = {};
+  rttMeasurements = {};
+
+  clients.forEach((client, i) => {
+    const ip = clientsIP[i];
+    
+    // Catat waktu server saat request dikirim
+    rttMeasurements[ip] = Date.now();
+
+    // Kirim permintaan waktu
+    client.write("REQ_TIME");
+  });
+}
 
 server.listen(TCP_PORT, () => {
-  console.log(`Server berjalan di port ${TCP_PORT}`);
+  console.log(`TCP Server berjalan di port ${TCP_PORT}`);
 
-  // Jalankan sinkronisasi otomatis setiap 300 detik (5 menit)
-  setInterval(() => {
-    if (clients.length > 0) {
-      // Reset array waktu
-      clientTimes = [];
+  // Sync otomatis tiap 5 menit
+  setInterval(startSync, 300 * 1000);
 
-      // Kirim permintaan waktu ke semua klien
-      clients.forEach((client) => {
-        client.write("REQ_TIME");
-      });
-
-
-    } else {
-      console.log("⚠️ Tidak ada klien yang terhubung, menunggu...");
-    }
-  // }, 300 * 1000); // setiap 5 menit
-  }, 10000); // setiap 5 menit
+  // Sync pertama setelah server hidup
+  setTimeout(startSync, 2000);
 });

@@ -3,120 +3,141 @@ const http = require("http");
 const fs = require("fs");
 const fsPromises = require("fs").promises;
 const WebSocket = require("ws");
+const { exec } = require("child_process");
+import dotenv from 'dotenv';
 
-const SERVER_HOST = "localhost";
+dotenv.config();
+const SERVER_HOST = process.env.IP_SERVER;
 const HTTP_HOST = "localhost";
 const SERVER_PORT = 8001;
 const HTTP_PORT = 8002;
 const WS_PORT = 8081;
 
-const requestListener = function (req, res) {
+// ==== HTTP SERVER ====
+let indexFile;
+
+const httpServer = http.createServer((req, res) => {
   res.setHeader("Content-Type", "text/html");
   res.writeHead(200);
   res.end(indexFile);
-};
+});
 
-const httpServer = http.createServer(requestListener);
-
-fsPromises
-  .readFile(__dirname + "/client.html")
+fsPromises.readFile(__dirname + "/client.html")
   .then((contents) => {
     indexFile = contents;
     httpServer.listen(HTTP_PORT, HTTP_HOST, () => {
-      console.log(`Server is running on http://${HTTP_HOST}:${HTTP_PORT}`);
+      console.log(`Client UI: http://${HTTP_HOST}:${HTTP_PORT}`);
     });
-  })
-  .catch((err) => {
-    console.error(`Could not read index.html file: ${err}`);
-    process.exit(1);
   });
 
+// ==== WEBSOCKET SERVER ====
 const wss = new WebSocket.Server({ port: WS_PORT });
-console.log(`WebSocket Server: ws://${HTTP_HOST}:${WS_PORT}`);
+console.log(`WebSocket UI ws://${HTTP_HOST}:${WS_PORT}`);
 
 function broadcast(data) {
-  wss.clients.forEach((client) => {
-    if (client.readyState === WebSocket.OPEN) {
-      client.send(JSON.stringify(data));
+  wss.clients.forEach((c) => {
+    if (c.readyState === WebSocket.OPEN) {
+      c.send(JSON.stringify(data));
     }
   });
 }
 
-// ID klien diambil dari argumen command line
+// ==== CLIENT TCP ====
+
 const CLIENT_ID = process.argv[2]
   ? process.argv[2]
-  : Math.floor(Math.random() * 100);
+  : Math.floor(Math.random() * 1000);
 
-// Lokasi penyimpanan hasil sinkronisasi
-const LOG_FILE = `sync_client_${CLIENT_ID}.json`;
+let localOffset = 0;
 
 const client = new net.Socket();
 
 client.connect(SERVER_PORT, SERVER_HOST, () => {
-  console.log(
-    `[${CLIENT_ID}] Terhubung ke server di ${SERVER_HOST}:${SERVER_PORT}`
-  );
-  console.log(
-    `[${CLIENT_ID}] Waktu lokal awal: ${new Date().toLocaleString()}`
-  );
+  console.log(`[${CLIENT_ID}] Terhubung ke server ${SERVER_HOST}:${SERVER_PORT}`);
+  console.log(`[${CLIENT_ID}] Waktu lokal awal: ${new Date().toLocaleString()}`);
 });
 
-let localOffset = 0;
-
 client.on("data", (data) => {
-  const message = data.toString().trim();
-  let localTime = Date.now() + localOffset;
+  const msg = data.toString().trim();
 
-  if (message === "REQ_TIME") {
-    console.log(`[${CLIENT_ID}] Server meminta waktu, mengirim: ${localTime}`);
-    client.write(localTime.toString());
-  } else {
-    const offset = parseFloat(message);
+  // ==== REQUEST TIME FROM SERVER ====
+  if (msg === "REQ_TIME") {
+    const now = Date.now() + localOffset;
+    console.log(`[${CLIENT_ID}] Server meminta waktu, mengirim TIME ${now}`);
+    client.write(`TIME ${now}`);
+    return;
+  }
+
+  // ==== SERVER OFFSET ====
+  if (msg.startsWith("OFFSET")) {
+    const offset = parseFloat(msg.split(" ")[1]);
     if (isNaN(offset)) {
-      console.log(
-        `[${CLIENT_ID}] Pesan tidak dikenali dari server: ${message}`
-      );
+      console.log(`[${CLIENT_ID}] Offset tidak valid: ${msg}`);
       return;
     }
-    localOffset += offset;
-    const adjustedTime = localTime + offset;
+
+    const beforeSync = Date.now() + localOffset;
 
     console.log(`[${CLIENT_ID}] Offset diterima: ${offset} ms`);
-    console.log(
-      `[${CLIENT_ID}] Waktu sebelum sinkronisasi: ${new Date().toLocaleString()}`
-    );
-    console.log(
-      `[${CLIENT_ID}] Waktu setelah sinkronisasi: ${new Date(
-        adjustedTime
-      ).toLocaleString()}\n`
-    );
 
-    // Simpan hasil sinkronisasi ke file
-    // const syncData = {
-    //   client_id: CLIENT_ID,
-    //   local_time_before: new Date().toISOString(),
-    //   offset_ms: offset,
-    //   adjusted_time: new Date(adjustedTime).toISOString(),
-    //   server: SERVER_HOST,
-    // };
+    // Update internal offset
+    localOffset += offset;
+
+    const adjusted = beforeSync + offset;
+
+    console.log(`[${CLIENT_ID}] Waktu sebelum sinkronisasi: ${new Date(beforeSync).toLocaleString()}`);
+    console.log(`[${CLIENT_ID}] Waktu setelah sinkronisasi (internal): ${new Date(adjusted).toLocaleString()}`);
+
+    // ==== OPSIONAL: SET TIME OS WINDOWS ====
+    applyWindowsTime(adjusted);
 
     broadcast({
       type: "sync_result",
       client_id: CLIENT_ID,
-      local_time_before: new Date().toISOString(),
+      local_time_before: new Date(beforeSync).toISOString(),
       offset_ms: offset,
-      adjusted_time: new Date(adjustedTime).toISOString(),
+      adjusted_time: new Date(adjusted).toISOString(),
       server: SERVER_HOST,
     });
 
-    // fs.writeFileSync(LOG_FILE, JSON.stringify(syncData, null, 2));
+    return;
   }
+
+  console.log(`[${CLIENT_ID}] Pesan tidak dikenali: ${msg}`);
 });
 
+// ==== UPDATE WAKTU WINDOWS ====
+function applyWindowsTime(timestampMs) {
+  const dateObj = new Date(timestampMs);
+
+  const yyyy = dateObj.getFullYear();
+  const mm = String(dateObj.getMonth() + 1).padStart(2, "0");
+  const dd = String(dateObj.getDate()).padStart(2, "0");
+
+  const hh = String(dateObj.getHours()).padStart(2, "0");
+  const mi = String(dateObj.getMinutes()).padStart(2, "0");
+  const ss = String(dateObj.getSeconds()).padStart(2, "0");
+
+  // Format Set-Date Windows
+  const winDate = `${yyyy}-${mm}-${dd} ${hh}:${mi}:${ss}`;
+
+  const cmd = `powershell.exe -Command "Set-Date -Date '${winDate}'"`;
+
+  console.log(`[${CLIENT_ID}] Menerapkan waktu OS Windows: ${winDate}`);
+
+  exec(cmd, (err, stdout, stderr) => {
+    if (err) {
+      console.error(`[${CLIENT_ID}] Gagal mengubah waktu OS (perlu run as Administrator):`, err.message);
+      return;
+    }
+    console.log(`[${CLIENT_ID}] Waktu OS berhasil diperbarui`);
+  });
+}
+
 client.on("close", () => {
-  console.log(`[${CLIENT_ID}] Koneksi ke server ditutup`);
+  console.log(`[${CLIENT_ID}] Koneksi ditutup`);
 });
 
 client.on("error", (err) => {
-  console.error(`[${CLIENT_ID}] Terjadi kesalahan:`, err.message);
+  console.error(`[${CLIENT_ID}] ERROR:`, err.message);
 });
