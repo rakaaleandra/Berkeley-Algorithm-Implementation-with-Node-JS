@@ -4,9 +4,7 @@ const fs = require("fs");
 const fsPromises = require("fs").promises;
 const WebSocket = require("ws");
 const { exec } = require("child_process");
-import dotenv from 'dotenv';
 
-dotenv.config();
 const SERVER_HOST = "192.168.100.51";
 const HTTP_HOST = "localhost";
 const SERVER_PORT = 8001;
