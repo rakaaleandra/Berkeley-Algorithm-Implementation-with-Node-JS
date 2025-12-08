@@ -7,7 +7,7 @@ const { exec } = require("child_process");
 import dotenv from 'dotenv';
 
 dotenv.config();
-const SERVER_HOST = process.env.IP_SERVER;
+const SERVER_HOST = "192.168.100.51";
 const HTTP_HOST = "localhost";
 const SERVER_PORT = 8001;
 const HTTP_PORT = 8002;
@@ -62,7 +62,7 @@ client.on("data", (data) => {
 
   // ==== REQUEST TIME FROM SERVER ====
   if (msg === "REQ_TIME") {
-    const now = Date.now() + localOffset;
+    const now = Date.now();
     console.log(`[${CLIENT_ID}] Server meminta waktu, mengirim TIME ${now}`);
     client.write(`TIME ${now}`);
     return;
@@ -76,12 +76,9 @@ client.on("data", (data) => {
       return;
     }
 
-    const beforeSync = Date.now() + localOffset;
+    const beforeSync = Date.now();
 
     console.log(`[${CLIENT_ID}] Offset diterima: ${offset} ms`);
-
-    // Update internal offset
-    localOffset += offset;
 
     const adjusted = beforeSync + offset;
 
