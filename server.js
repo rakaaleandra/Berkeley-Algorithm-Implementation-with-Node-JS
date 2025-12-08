@@ -96,8 +96,11 @@ function executeBerkeley() {
   
   if (times.length === 0) return;
 
+  const allTimes = times.concat([serverTime]);
+
   // Hitung rata-rata waktu klien (Berkeley standard)
-  const avg = times.reduce((a, b) => a + b) / times.length;
+  // const avg = times.reduce((a, b) => a + b) / times.length;
+  const avg = allTimes.reduce((a, b) => a + b) / allTimes.length;
 
   console.log("\n=== HASIL SINKRONISASI (BERKELEY) ===");
   console.log("Server time:", serverTime, "ms");
@@ -129,7 +132,8 @@ function executeBerkeley() {
   // Kirim offset ke masing-masing klien
   clients.forEach((client, i) => {
     const ip = clientsIP[i];
-    client.write(`OFFSET ${offsets[ip]}`);
+    // client.write(`OFFSET ${offsets[ip]}`);
+    client.write(`AVG ${avg}`);
   });
 
   // Reset untuk sinkronisasi berikutnya
@@ -164,7 +168,7 @@ server.listen(TCP_PORT, () => {
   console.log(`TCP Server berjalan di port ${TCP_PORT}`);
 
   // Sync otomatis tiap 5 menit
-  setInterval(startSync, 30 * 1000);
+  setInterval(startSync, 300 * 1000);
 
   // Sync pertama setelah server hidup
   setTimeout(startSync, 2000);

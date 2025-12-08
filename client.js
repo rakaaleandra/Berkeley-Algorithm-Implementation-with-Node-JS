@@ -5,7 +5,7 @@ const fsPromises = require("fs").promises;
 const WebSocket = require("ws");
 const { exec } = require("child_process");
 
-const SERVER_HOST = "192.168.100.51";
+const SERVER_HOST = "172.20.10.8";
 const HTTP_HOST = "localhost";
 const SERVER_PORT = 8001;
 const HTTP_PORT = 8002;
@@ -67,14 +67,17 @@ client.on("data", (data) => {
   }
 
   // ==== SERVER OFFSET ====
-  if (msg.startsWith("OFFSET")) {
-    const offset = parseFloat(msg.split(" ")[1]);
-    if (isNaN(offset)) {
-      console.log(`[${CLIENT_ID}] Offset tidak valid: ${msg}`);
+  if (msg.startsWith("AVG")) {
+    const parts = msg.split(" ");
+    const avg = Number(parts[1]);
+    // const offset = parseFloat(msg.split(" ")[1]);
+    if (isNaN(avg)) {
+      console.log(`[${CLIENT_ID}] AVG tidak valid: ${msg}`);
       return;
     }
 
     const beforeSync = Date.now();
+    const offset = avg - beforeSync;
 
     console.log(`[${CLIENT_ID}] Offset diterima: ${offset} ms`);
 
@@ -84,7 +87,7 @@ client.on("data", (data) => {
     console.log(`[${CLIENT_ID}] Waktu setelah sinkronisasi (internal): ${new Date(adjusted).toLocaleString()}`);
 
     // ==== OPSIONAL: SET TIME OS WINDOWS ====
-    applyWindowsTime(adjusted);
+    applyWindowsTime(avg);
 
     broadcast({
       type: "sync_result",
