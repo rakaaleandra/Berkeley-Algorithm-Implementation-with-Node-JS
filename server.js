@@ -45,6 +45,14 @@ function broadcast(data) {
   });
 }
 
+function fmtTime(ms) {
+  const d = new Date(Number(ms));
+  if (isNaN(d.getTime())) return `invalid(${ms})`;
+  const time = d.toLocaleTimeString('id-ID', { hour12: false });
+  const msPart = String(d.getMilliseconds()).padStart(3, '0');
+  return `${time}.${msPart} (ms:${ms})`;
+}
+
 // ==== TCP SERVER (BERKELEY) ====
 
 const server = net.createServer((socket) => {
@@ -73,11 +81,16 @@ const server = net.createServer((socket) => {
       clientTimes[ip] = correctedClientTime;
 
       console.log(`Data dari ${ip}`);
-      console.log("  Client send:", clientSendTime);
-      console.log("  Server recv:", serverReceiveTime);
-      console.log("  RTT:", rtt, "ms");
-      console.log("  Delay:", delay, "ms");
-      console.log("  Corrected:", correctedClientTime);
+      // console.log("  Client send:", clientSendTime);
+      // console.log("  Server recv:", serverReceiveTime);
+      // console.log("  RTT:", rtt, "ms");
+      // console.log("  Delay:", delay, "ms");
+      // console.log("  Corrected:", correctedClientTime);
+      console.log(`  Client send:       ${fmtTime(clientSendTime)}`) ;
+      console.log(`  Server recv:       ${fmtTime(serverReceiveTime)}`);
+      console.log(`  RTT:               ${rtt} ms`);
+      console.log(`  Delay (RTT/2):     ${delay} ms`);
+      console.log(`  Corrected client:  ${fmtTime(correctedClientTime)}`);
 
       // Jika semua data masuk
       if (Object.keys(clientTimes).length === clients.length) {
@@ -104,9 +117,12 @@ function executeBerkeley() {
   const avg = allTimes.reduce((a, b) => a + b) / allTimes.length;
 
   console.log("\n=== HASIL SINKRONISASI (BERKELEY) ===");
-  console.log("Server time:", serverTime, "ms");
-  console.log("Client corrected times:", clientTimes);
-  console.log("Average :", avg, "ms");
+  console.log("Server time:", fmtTime(serverTime));
+  console.log("Client corrected times:");
+  Object.entries(clientTimes).forEach(([ip, t]) => {
+    console.log(`  ${ip}: ${fmtTime(t)}`);
+  });
+  console.log("Average :", fmtTime(avg));
 
   // Hitung offset klien
   let offsets = {};

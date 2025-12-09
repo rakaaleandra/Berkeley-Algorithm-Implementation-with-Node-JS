@@ -67,7 +67,8 @@ client.on("data", (data) => {
   // ==== REQUEST TIME FROM SERVER ====
   if (msg === "REQ_TIME") {
     const now = Date.now();
-    console.log(`[${CLIENT_ID}] Server meminta waktu, mengirim TIME ${now}`);
+    // console.log("Server time:", new Date(serverTime).toLocaleTimeString(), `(ms: ${serverTime})`);
+    console.log(`[${CLIENT_ID}] Server meminta waktu, mengirim TIME `, new Date(now).toLocaleTimeString());
     client.write(`TIME ${now}`);
     return;
   }
