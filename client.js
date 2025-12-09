@@ -90,7 +90,7 @@ client.on("data", (data) => {
     console.log(`[${CLIENT_ID}] Waktu setelah sinkronisasi (internal): ${new Date(adjusted).toLocaleString()}`);
 
     // Terapkan waktu OS (opsional, fungsi saat ini untuk Windows)
-    applyWindowsTime(avg);
+    applyWindowsTime(adjusted);
 
     broadcast({
       type: "sync_result",
