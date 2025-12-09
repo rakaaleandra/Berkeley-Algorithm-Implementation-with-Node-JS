@@ -57,6 +57,12 @@ client.connect(SERVER_PORT, SERVER_HOST, () => {
 
 client.on("data", (data) => {
   const msg = data.toString().trim();
+  let parsed = null;
+  try {
+    parsed = JSON.parse(msg);
+  } catch (e) {
+    parsed = null;
+  }
 
   // ==== REQUEST TIME FROM SERVER ====
   if (msg === "REQ_TIME") {
@@ -66,27 +72,24 @@ client.on("data", (data) => {
     return;
   }
 
-  // ==== SERVER OFFSET ====
-  if (msg.startsWith("AVG")) {
-    const parts = msg.split(" ");
-    const avg = Number(parts[1]);
-    // const offset = parseFloat(msg.split(" ")[1]);
-    if (isNaN(avg)) {
-      console.log(`[${CLIENT_ID}] AVG tidak valid: ${msg}`);
+  if (parsed && parsed.type === "berkeley_sync") {
+    const avg = Number(parsed.avgTime);
+    const offset = Number(parsed.offset ?? (avg - Date.now()));
+
+    if (isNaN(avg) || isNaN(offset)) {
+      console.log(`[${CLIENT_ID}] Payload berkeley_sync tidak valid:`, parsed);
       return;
     }
 
     const beforeSync = Date.now();
-    const offset = avg - beforeSync;
-
-    console.log(`[${CLIENT_ID}] Offset diterima: ${offset} ms`);
-
     const adjusted = beforeSync + offset;
 
+    console.log(`[${CLIENT_ID}] BERKELEY_SYNC diterima`);
+    console.log(`[${CLIENT_ID}] avgTime: ${avg} ms, offset: ${offset} ms`);
     console.log(`[${CLIENT_ID}] Waktu sebelum sinkronisasi: ${new Date(beforeSync).toLocaleString()}`);
     console.log(`[${CLIENT_ID}] Waktu setelah sinkronisasi (internal): ${new Date(adjusted).toLocaleString()}`);
 
-    // ==== OPSIONAL: SET TIME OS WINDOWS ====
+    // Terapkan waktu OS (opsional, fungsi saat ini untuk Windows)
     applyWindowsTime(avg);
 
     broadcast({
@@ -96,10 +99,46 @@ client.on("data", (data) => {
       offset_ms: offset,
       adjusted_time: new Date(adjusted).toISOString(),
       server: SERVER_HOST,
+      avg_time_ms: avg
     });
 
     return;
   }
+
+  // ==== SERVER OFFSET ====
+  // if (msg.startsWith("AVG")) {
+  //   const parts = msg.split(" ");
+  //   const avg = Number(parts[1]);
+  //   // const offset = parseFloat(msg.split(" ")[1]);
+  //   if (isNaN(avg)) {
+  //     console.log(`[${CLIENT_ID}] AVG tidak valid: ${msg}`);
+  //     return;
+  //   }
+
+  //   const beforeSync = Date.now();
+  //   const offset = avg - beforeSync;
+
+  //   console.log(`[${CLIENT_ID}] Offset diterima: ${offset} ms`);
+
+  //   const adjusted = beforeSync + offset;
+
+  //   console.log(`[${CLIENT_ID}] Waktu sebelum sinkronisasi: ${new Date(beforeSync).toLocaleString()}`);
+  //   console.log(`[${CLIENT_ID}] Waktu setelah sinkronisasi (internal): ${new Date(adjusted).toLocaleString()}`);
+
+  //   // ==== OPSIONAL: SET TIME OS WINDOWS ====
+  //   applyWindowsTime(avg);
+
+  //   broadcast({
+  //     type: "sync_result",
+  //     client_id: CLIENT_ID,
+  //     local_time_before: new Date(beforeSync).toISOString(),
+  //     offset_ms: offset,
+  //     adjusted_time: new Date(adjusted).toISOString(),
+  //     server: SERVER_HOST,
+  //   });
+
+  //   return;
+  // }
 
   console.log(`[${CLIENT_ID}] Pesan tidak dikenali: ${msg}`);
 });

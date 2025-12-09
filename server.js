@@ -2,6 +2,7 @@ const net = require("net");
 const http = require("http");
 const fs = require('fs').promises;
 const WebSocket = require("ws");
+const { exec } = require("child_process");
 
 const HTTP_HOST = "localhost";
 const HTTP_PORT = 8000;
@@ -105,7 +106,7 @@ function executeBerkeley() {
   console.log("\n=== HASIL SINKRONISASI (BERKELEY) ===");
   console.log("Server time:", serverTime, "ms");
   console.log("Client corrected times:", clientTimes);
-  console.log("Average (clients only):", avg, "ms");
+  console.log("Average :", avg, "ms");
 
   // Hitung offset klien
   let offsets = {};
@@ -132,13 +133,27 @@ function executeBerkeley() {
   // Kirim offset ke masing-masing klien
   clients.forEach((client, i) => {
     const ip = clientsIP[i];
-    // client.write(`OFFSET ${offsets[ip]}`);
-    client.write(`AVG ${avg}`);
+    const payload = {
+      type : "berkeley_sync",
+      avgTime : Number(avg),
+      offset: Number(offsets[ip] ?? 0),
+      serverOffset: Number(serverOffset)
+    }
+    client.write(JSON.stringify(payload) + "\n");
   });
 
   // Reset untuk sinkronisasi berikutnya
   clientTimes = {};
   rttMeasurements = {};
+
+  const epochSeconds = Math.floor(avg / 1000);
+  exec(`sudo date -s @${epochSeconds}`, (error, stdout, stderr) => {
+    if (error) {
+      console.error(`Error: ${error.message}`);
+      return;
+    }
+    console.log("Waktu sistem diperbarui:", stdout.trim());
+  });
 }
 
 // ==== TRIGGER SYNC ====
@@ -168,7 +183,7 @@ server.listen(TCP_PORT, () => {
   console.log(`TCP Server berjalan di port ${TCP_PORT}`);
 
   // Sync otomatis tiap 5 menit
-  setInterval(startSync, 300 * 1000);
+  setInterval(startSync, 30 * 1000);
 
   // Sync pertama setelah server hidup
   setTimeout(startSync, 2000);
